@@ -1,0 +1,237 @@
+#!/usr/bin/env python 
+# -*- coding: utf-8 -*-
+
+# Copyright (c) 2010 Young Ng <fivesheep@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,  but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+
+import urllib
+import urllib2
+import sys
+import re
+import traceback
+from optparse import OptionParser
+
+try:
+    import json
+except:
+    try:
+        import simplejson as json
+    except:
+        print 'For Python 2.5, simplejson is required'
+
+class TranslateException(Exception):
+    pass
+
+class GoogleTranslator:
+
+    LANGUAGES={
+        'AFRIKAANS' : 'af',
+        'ALBANIAN' : 'sq',
+        'AMHARIC' : 'am',
+        'ARABIC' : 'ar',
+        'ARMENIAN' : 'hy',
+        'AZERBAIJANI' : 'az',
+        'BASQUE' : 'eu',
+        'BELARUSIAN' : 'be',
+        'BENGALI' : 'bn',
+        'BIHARI' : 'bh',
+        'BULGARIAN' : 'bg',
+        'BURMESE' : 'my',
+        'CATALAN' : 'ca',
+        'CHEROKEE' : 'chr',
+        'CHINESE' : 'zh',
+        'CHINESE_SIMPLIFIED' : 'zh-CN',
+        'CHINESE_TRADITIONAL' : 'zh-TW',
+        'CROATIAN' : 'hr',
+        'CZECH' : 'cs',
+        'DANISH' : 'da',
+        'DHIVEHI' : 'dv',
+        'DUTCH': 'nl',  
+        'ENGLISH' : 'en',
+        'ESPERANTO' : 'eo',
+        'ESTONIAN' : 'et',
+        'FILIPINO' : 'tl',
+        'FINNISH' : 'fi',
+        'FRENCH' : 'fr',
+        'GALICIAN' : 'gl',
+        'GEORGIAN' : 'ka',
+        'GERMAN' : 'de',
+        'GREEK' : 'el',
+        'GUARANI' : 'gn',
+        'GUJARATI' : 'gu',
+        'HEBREW' : 'iw',
+        'HINDI' : 'hi',
+        'HUNGARIAN' : 'hu',
+        'ICELANDIC' : 'is',
+        'INDONESIAN' : 'id',
+        'INUKTITUT' : 'iu',
+        'IRISH' : 'ga',
+        'ITALIAN' : 'it',
+        'JAPANESE' : 'ja',
+        'KANNADA' : 'kn',
+        'KAZAKH' : 'kk',
+        'KHMER' : 'km',
+        'KOREAN' : 'ko',
+        'KURDISH': 'ku',
+        'KYRGYZ': 'ky',
+        'LAOTHIAN': 'lo',
+        'LATVIAN' : 'lv',
+        'LITHUANIAN' : 'lt',
+        'MACEDONIAN' : 'mk',
+        'MALAY' : 'ms',
+        'MALAYALAM' : 'ml',
+        'MALTESE' : 'mt',
+        'MARATHI' : 'mr',
+        'MONGOLIAN' : 'mn',
+        'NEPALI' : 'ne',
+        'NORWEGIAN' : 'no',
+        'ORIYA' : 'or',
+        'PASHTO' : 'ps',
+        'PERSIAN' : 'fa',
+        'POLISH' : 'pl',
+        'PORTUGUESE' : 'pt-PT',
+        'PUNJABI' : 'pa',
+        'ROMANIAN' : 'ro',
+        'RUSSIAN' : 'ru',
+        'SANSKRIT' : 'sa',
+        'SERBIAN' : 'sr',
+        'SINDHI' : 'sd',
+        'SINHALESE' : 'si',
+        'SLOVAK' : 'sk',
+        'SLOVENIAN' : 'sl',
+        'SPANISH' : 'es',
+        'SWAHILI' : 'sw',
+        'SWEDISH' : 'sv',
+        'TAJIK' : 'tg',
+        'TAMIL' : 'ta',
+        'TAGALOG' : 'tl',
+        'TELUGU' : 'te',
+        'THAI' : 'th',
+        'TIBETAN' : 'bo',
+        'TURKISH' : 'tr',
+        'UKRAINIAN' : 'uk',
+        'URDU' : 'ur',
+        'UZBEK' : 'uz',
+        'UIGHUR' : 'ug',
+        'VIETNAMESE' : 'vi',
+        'WELSH' : 'cy',
+        'YIDDISH' : 'yi'}
+
+    CODES_SET=set(LANGUAGES.values())
+
+    BASEURL=r'http://ajax.googleapis.com/ajax/services/language/translate?'
+
+    def codeLookup(cls,lang):
+        lang=lang.upper()
+        if cls.LANGUAGES.has_key(lang):
+            return cls.LANGUAGES[lang]
+        else:
+            return None
+    codeLookup=classmethod(codeLookup)
+
+    def codeCheck(cls,code):
+        code=code.lower()
+        if cls.CODES_SET.has_key(code):
+            return True
+        else:
+            return False
+
+    def translate(cls,text,dest='en',src=None):
+        """Translate the given text into the targetLang.
+        
+        Arguments:
+        - `text`: the text to be translated
+        - `dest`: the code of the destination language 
+        - `src`: the code of the source language, if not given, auto-detect feature will be used.
+        """
+        langpair=''
+        
+        if dest not in cls.CODES_SET:
+            raise TranslateException('Destination language not supported.')
+
+        if src == None:
+            langpair='|'+dest
+        elif src in cls.CODES_SET:
+            langpair=src+'|'+dest
+        else:
+            raise TranslateException('Source language not supported.')
+
+        params=urllib.urlencode({'v':1.0, 'q':text, 'langpair':langpair,'format':'text'})
+        url=cls.BASEURL+params
+        data=json.loads(urllib2.urlopen(url).read())
+
+        if data['responseStatus'] != 200:
+            raise TranslateException(data['responseDetails'])
+
+        translatedText=data['responseData']['translatedText'].encode('utf-8')
+        dectedLang=''
+        if data['responseData'].has_key('detectedSourceLanguage'):
+            dectedLang=data['responseData']['detectedSourceLanguage']
+        return (dectedLang, translatedText)
+    translate=classmethod(translate)
+
+def translate(word,word_eol,userdata):
+    """Translate the given sentence."""
+    text=None
+    lang=None
+    if re.match(r'[a-z]+\|[a-z]+',word[1]):
+        src,dest=word[1].split('|')
+        lang,text=GoogleTranslator.translate(word_eol[2],dest,src)
+    else:
+        lang,text=GoogleTranslator.translate(word_eol[1])
+
+    xchat.prnt("|%s| %s"%(lang,text))
+    return xchat.EAT_NONE
+
+if __name__=='__main__':
+    usage="Usage: %prog [-sdl] [sentences]"
+    parser=OptionParser(usage=usage)
+    parser.add_option('-s','--source',dest='source', help="lang code of the source language")
+    parser.add_option('-d','--destination',dest='destination', help="lang code of the destination language")
+    parser.add_option('-l','--list',action="store_true",dest='langcode', default=False, help="list of the supported lang codes")
+    (opts,args)=parser.parse_args()
+    
+    if opts.langcode:
+        languages=GoogleTranslator.LANGUAGES.keys()
+        languages.sort()
+        for l in languages: 
+            langcode=GoogleTranslator.LANGUAGES[l]
+            print l.capitalize(),langcode
+        exit(0)
+
+    srcLang=opts.source
+    destLang=opts.destination
+    srctext=' '.join(args)
+
+    if len(args) < 1:
+        print >>sys.stderr, 'No input text!'
+        exit(1)
+
+    if destLang == None:
+        destLang='en'
+
+    try:
+        lang,text=GoogleTranslator.translate(srctext,destLang,srcLang)
+        if lang == '':
+            print text
+        else:
+            print "[%s] %s"%(lang,text)
+    except TranslateException,e:
+        print >>sys.stderr, e
+    except urllib2.URLError, e:
+        print >>sys.stderr, e
+    except UnicodeError, e:
+        print >>sys.stderr, e
+    except:
+        traceback.print_exc()
+        exit(1)
+    exit(0)
