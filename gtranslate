@@ -172,25 +172,12 @@ class GoogleTranslator:
         if data['responseStatus'] != 200:
             raise TranslateException(data['responseDetails'])
 
-        translatedText=data['responseData']['translatedText'].encode('utf-8')
+        translatedText=data['responseData']['translatedText']
         dectedLang=''
         if data['responseData'].has_key('detectedSourceLanguage'):
             dectedLang=data['responseData']['detectedSourceLanguage']
         return (dectedLang, translatedText)
     translate=classmethod(translate)
-
-def translate(word,word_eol,userdata):
-    """Translate the given sentence."""
-    text=None
-    lang=None
-    if re.match(r'[a-z]+\|[a-z]+',word[1]):
-        src,dest=word[1].split('|')
-        lang,text=GoogleTranslator.translate(word_eol[2],dest,src)
-    else:
-        lang,text=GoogleTranslator.translate(word_eol[1])
-
-    xchat.prnt("|%s| %s"%(lang,text))
-    return xchat.EAT_NONE
 
 if __name__=='__main__':
     usage="Usage: %prog [-sdl] [sentences]"
